@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Scraper</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #181818;
+      --primary-color: #4ecca3;
+      --secondary-color: #2c2f33;
+      --text-color: #f1f1f1;
+      --accent-color: #f39c12;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 30px;
+      color: var(--primary-color);
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      margin: 10px;
+    }
+
+    button:hover {
+      background-color: #3cbf96;
+    }
+
+    table {
+      width: 95%;
+      margin-top: 30px;
+      border-collapse: collapse;
+      background: var(--secondary-color);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+
+    th, td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid #444;
+    }
+
+    th {
+      background: #202225;
+      color: var(--accent-color);
+    }
+
+    tr:hover {
+      background-color: #2d2f36;
+    }
+
+    #downloadBtn {
+      background-color: #f39c12;
+    }
+
+    #downloadBtn:hover {
+      background-color: #d78c0d;
+    }
+  </style>
+</head>
+<body>
+  <h1>📚 Product Scraper</h1>
+  <div>
+    <button onclick="fetchBooks()">Fetch Products</button>
+    <button id="downloadBtn" onclick="downloadPDF()">Download PDF</button>
+  </div>
+  <table id="bookTable">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Price</th>
+        <th>Rating</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let collectedBooks = [];
+
+    async function fetchBooks() {
+      const corsProxy = 'https://api.allorigins.win/get?url=';
+      const baseUrl = 'https://books.toscrape.com/catalogue/page-';
+      const tableBody = document.querySelector("#bookTable tbody");
+      tableBody.innerHTML = '';
+      collectedBooks = [];
+
+      for (let page = 1; page <= 2; page++) {
+        const url = corsProxy + encodeURIComponent(`${baseUrl}${page}.html`);
+        const res = await fetch(url);
+        const json = await res.json();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(json.contents, 'text/html');
+        const books = doc.querySelectorAll('.product_pod');
+
+        books.forEach(book => {
+          const title = book.querySelector('h3 a').title;
+          const price = book.querySelector('.price_color').innerText;
+          const rating = book.querySelector('p.star-rating').classList[1];
+
+          collectedBooks.push({ title, price, rating });
+
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${title}</td><td>${price}</td><td>${rating}</td>`;
+          tableBody.appendChild(row);
+        });
+      }
+    }
+
+    function downloadPDF() {
+      if (collectedBooks.length === 0) return alert("No data to export!");
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(14);
+      doc.text("Book Products", 14, 15);
+
+      const headers = ["Title", "Price", "Rating"];
+      const rows = collectedBooks.map(book => [book.title, book.price, book.rating]);
+
+      let y = 25;
+      headers.forEach((h, i) => {
+        doc.text(h, 14 + i * 60, y);
+      });
+
+      y += 10;
+      rows.forEach(row => {
+        row.forEach((cell, i) => {
+          doc.text(String(cell), 14 + i * 60, y);
+        });
+        y += 10;
+      });
+
+      doc.save("products.pdf");
+    }
+  </script>
+</body>
+</html>
